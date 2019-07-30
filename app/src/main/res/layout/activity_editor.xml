@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".activity.EditorActivity">
+
+    <LinearLayout
+        android:id="@+id/content_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical" >
+
+    </LinearLayout>
+
+    <RelativeLayout
+        android:id="@+id/basic_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/background_light"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/save"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onSaveButtonClick"
+            android:text="@string/save_button" />
+
+        <Button
+            android:id="@+id/pen_on"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/save"
+            android:onClick="onDrawingButtonClick"
+            android:text="@string/pen_on" />
+
+        <Button
+            android:id="@+id/place_square"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/pen_on"
+            android:onClick="onPlaceSquareButtonClick"
+            android:text="@string/place_square" />
+
+        <Button
+            android:id="@+id/zoom_plus"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/save"
+            android:onClick="onZoomPlusClick"
+            android:text="@string/zoom_plus" />
+
+        <Button
+            android:id="@+id/zoom_minus"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/pen_on"
+            android:layout_toEndOf="@id/zoom_plus"
+            android:onClick="onZoomMinusClick"
+            android:text="@string/zoom_minus" />
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/room_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/basic_panel"
+        android:background="@android:color/background_light"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/labelText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/labelText"
+            android:ems="10"
+            android:hint="@string/label_text"
+            android:inputType="textMultiLine" />
+
+        <Button
+            android:id="@+id/delete"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/labelText"
+            android:layout_marginTop="0dp"
+            android:onClick="onDeleteClick"
+            android:text="@string/delete" />
+
+        <TextView
+            android:id="@+id/textViewScale"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/labelText"
+            android:text="@string/scale" />
+
+        <SeekBar
+            android:id="@+id/scale_edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/textViewScale"
+            android:layout_toEndOf="@id/labelText"
+            android:max="10000" />
+
+        <TextView
+            android:id="@+id/textViewRotation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/scale_edit"
+            android:layout_toEndOf="@id/labelText"
+            android:text="@string/rotation" />
+
+        <SeekBar
+            android:id="@+id/rotation_edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/textViewRotation"
+            android:layout_toEndOf="@id/labelText"
+            android:max="360" />
+    </RelativeLayout>
+
+</RelativeLayout>

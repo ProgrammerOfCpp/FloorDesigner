@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Floor Designer</string>
+    <string name="pen_on">Pen On</string>
+    <string name="pen_off">Pen off</string>
+    <string name="clear">Clear</string>
+    <string name="zoom_plus">+</string>
+    <string name="zoom_minus">-</string>
+    <string name="project_name_hint">Project name</string>
+    <string name="new_project_placeholder">New project</string>
+    <string name="create_button_text">Create</string>
+    <string name="project_exists_toast">Project already exists!</string>
+    <string name="cant_create_file_error">Can\'t create file!</string>
+    <string name="save_button">Save</string>
+    <string name="cant_load_project">Can\'t load project!</string>
+    <string name="delete">Delete</string>
+    <string name="saved_successfylly_toast">Saved successfully</string>
+    <string name="apply">Apply</string>
+    <string name="rotation">Rotation</string>
+    <string name="scale">Scale</string>
+    <string name="label_text">Label text...</string>
+    <string name="place_square">Square</string>
+</resources>
