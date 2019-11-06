@@ -1,5 +1,6 @@
 package com.daniils.floordesigner.activity;
 
+import android.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
@@ -58,7 +59,9 @@ public class EditorActivity extends AppCompatActivity {
         });
 
         drawingView = new DrawingView(this, path);
-        drawingView.setLayoutParams(new LinearLayout.LayoutParams(1024, 1024));
+        drawingView.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT));
         content.addView(drawingView);
     }
 
@@ -116,5 +119,9 @@ public class EditorActivity extends AppCompatActivity {
     public void onPlaceSquareButtonClick(View view) {
         Toast.makeText(this, "Drag and drop to create square", Toast.LENGTH_LONG).show();
         drawingView.setPlacingSquare(true);
+    }
+
+    public void onLockClick(View view) {
+        drawingView.lockSelected();
     }
 }

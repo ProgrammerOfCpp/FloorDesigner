@@ -9,4 +9,5 @@ public class PolygonData implements Serializable {
     public ArrayList<Point> path = new ArrayList<>();
     public String label = "";
     public double rotation = 0, scale = 1;
+    public boolean locked = false;
 }

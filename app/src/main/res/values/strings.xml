@@ -19,4 +19,6 @@
     <string name="scale">Scale</string>
     <string name="label_text">Label text...</string>
     <string name="place_square">Square</string>
+    <string name="lock">Lock</string>
+    <string name="unlock">Unlock</string>
 </resources>

@@ -32,6 +32,7 @@ public class Vertex extends Selectable {
     @Override
     public void touchDragged(Point point) {
         super.touchDragged(point);
+        if (polygon.locked) return;
         if (selected) {
             new MovementCorrector(this, directionalLines)
                     .performMovement(point);

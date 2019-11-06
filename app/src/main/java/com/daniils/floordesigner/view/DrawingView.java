@@ -9,6 +9,7 @@ import android.graphics.Path;
 import android.graphics.Rect;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.TextView;
 
 import com.daniils.floordesigner.BuildingHelper;
 import com.daniils.floordesigner.Maths;
@@ -301,10 +302,12 @@ public class DrawingView extends View {
         for (Selectable v : selection) {
             if (v instanceof Polygon) {
                 ((Polygon) v).remove();
+                break;
             }
             if (v instanceof Vertex) {
                 ((Vertex) v).polygon.remove();
             }
+            break;
         }
         selection.clear();
         invalidate();
@@ -312,5 +315,23 @@ public class DrawingView extends View {
 
     public void setPlacingSquare(boolean b) {
         this.placingSquare = b;
+    }
+
+    public void lockSelected() {
+        LinkedList<Selectable> selection = new LinkedList<>(this.selection);
+        for (Selectable v : selection) {
+            Polygon poly = null;
+            if (v instanceof Polygon) {
+                poly = (Polygon)v;
+            }
+            if (v instanceof Vertex) {
+                poly = ((Vertex) v).polygon;
+            }
+            if (poly != null) {
+                poly.locked = !poly.locked;
+                poly.showMenu();
+            }
+            break;
+        }
     }
 }

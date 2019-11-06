@@ -10,6 +10,7 @@ import android.graphics.Path;
 import android.graphics.Typeface;
 import android.widget.EditText;
 import android.widget.SeekBar;
+import android.widget.TextView;
 
 import com.daniils.floordesigner.activity.EditorActivity;
 import com.daniils.floordesigner.activity.MainActivity;
@@ -33,6 +34,7 @@ public class Polygon extends Selectable {
     public String label = "";
     public final int LABEL_THICKNESS = 40;
     private double rotation = 0, scale = 0.5;
+    public boolean locked = false;
 
     public Polygon(DrawingView drawingView, ArrayList<Point> path) {
         this.drawingView = drawingView;
@@ -68,6 +70,7 @@ public class Polygon extends Selectable {
         rotation = data.rotation;
         scale = data.scale;
         label = data.label;
+        locked = data.locked;
     }
 
     public boolean canExist() {
@@ -190,6 +193,7 @@ public class Polygon extends Selectable {
     @Override
     public void touchDragged(Point point) {
         super.touchDragged(point);
+        if (locked) return;
         if (prevTouchPoint != null)  {
             Point delta = point.sub(prevTouchPoint);
             for (Vertex v : vertices) {
@@ -222,6 +226,7 @@ public class Polygon extends Selectable {
         data.scale = scale;
         data.rotation = rotation;
         data.label = label;
+        data.locked = locked;
         return data;
     }
 
@@ -298,6 +303,12 @@ public class Polygon extends Selectable {
             }
         });
         rotBar.setProgress((int)(getRotation() * rotBar.getMax()));
+
+        TextView lockState = activity.findViewById(R.id.lock);
+        if (locked)
+            lockState.setText(R.string.unlock);
+        else
+            lockState.setText(R.string.lock);
     }
 
     public double getScale() {
