@@ -1,40 +1,51 @@
 package com.daniils.floordesigner.view;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.Rect;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.TextView;
 
 import com.daniils.floordesigner.BuildingHelper;
-import com.daniils.floordesigner.Maths;
+import com.daniils.floordesigner.LengthFrame;
+import com.daniils.floordesigner.MovementFilter;
+import com.daniils.floordesigner.Shapes;
+import com.daniils.floordesigner.WallElements;
+import com.daniils.floordesigner.data.WindowData;
+import com.daniils.floordesigner.util.Maths;
 import com.daniils.floordesigner.Point;
 import com.daniils.floordesigner.Polygon;
 import com.daniils.floordesigner.R;
 import com.daniils.floordesigner.Selectable;
 import com.daniils.floordesigner.Vertex;
-import com.daniils.floordesigner.Util;
+import com.daniils.floordesigner.util.Util;
 import com.daniils.floordesigner.data.PolygonData;
+import com.daniils.floordesigner.windows.Window;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 
+@SuppressLint("ViewConstructor")
 public class DrawingView extends View {
+
+    enum State  { DEFAULT, DRAWING, PLACING_WINDOW, PLACING_SHAPE };
     public static final double VERTEX_BUTTON_RADIUS = 50;
     public static final double SEGM_BUTTON_RADIUS = 30;
-    private boolean drawing = false;
-    private boolean placingSquare = false;
+    public static final double DRAG_MOVEMENT_STEP = 50;
+
+    private State state = State.DEFAULT;
     private LinkedList<Point> path = new LinkedList<>();
     public ArrayList<Selectable> selection = new ArrayList<>();
     public LinkedList<Polygon> polygons = new LinkedList<>();
@@ -43,6 +54,10 @@ public class DrawingView extends View {
     public double scaleFactor = 0.8f;
     private Point touchStart = new Point(0, 0);
     private Point[] placedSquare = null;
+    private LengthFrame lengthFrame = new LengthFrame();
+    int shapeIndex = 0;
+    int windowIndex = 0;
+    MovementFilter filter = new MovementFilter(10);
 
     public DrawingView(Context context, String filename) {
         super(context);
@@ -55,28 +70,74 @@ public class DrawingView extends View {
         }
     }
 
-
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        boolean out;
-        if (drawing)
-            out = onTouchDrawing(event);
-        else if (placingSquare)
-            out = onTouchPlacingSquare(event);
-        else
-            out = onTouchNoDrawing(event);
+        boolean out = false;
+        switch (state) {
+            case DRAWING:
+                out = onTouchDrawing(event);
+                break;
+            case PLACING_SHAPE:
+                out = onTouchPlacingSquare(event);
+                break;
+            case PLACING_WINDOW:
+                out = onTouchPlacingWindow(event);
+                break;
+            case DEFAULT:
+                out = onTouchNoDrawing(event);
+        }
         return out;
     }
 
     private void clearSelection() {
-        for (Selectable v : selection) {
-            v.setSelected(selection, false);
+        if (!selection.isEmpty()) {
+            selection.get(0).setSelected(selection, false);
         }
     }
 
+    private boolean onTouchPlacingWindow(MotionEvent event) {
+        Point t = new Point(event.getX(), event.getY());
+        if (event.getAction() == MotionEvent.ACTION_DOWN)
+            filter.reset();
+        t = filter.update(t);
+        int x = (int)((t.x + 0.5f - translation.x) / scaleFactor);
+        int y = (int)((t.y + 0.5f - translation.y) / scaleFactor);
+
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                try {
+                    Point p = new Point(x, y);
+                    Class<?> aClass = WallElements.wallElements[windowIndex].aClass;
+                    Constructor<?> constructor = aClass.getConstructor(Point.class, Vertex.class);
+                    Vertex v = Util.getClosestSegment(polygons, p, 90);
+                    if (v != null) {
+                        Window window = (Window) constructor.newInstance(p, v);
+                        v.addWindow(window);
+                    }
+                } catch (NoSuchMethodException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (InstantiationException e) {
+                    e.printStackTrace();
+                } catch (InvocationTargetException e) {
+                    e.printStackTrace();
+                }
+                setPlacingWindow(false);
+                invalidate();
+                break;
+        }
+        return true;
+    }
+
     private boolean onTouchPlacingSquare(MotionEvent event) {
-        int x = (int)((event.getX() + 0.5f - translation.x) / scaleFactor);
-        int y = (int)((event.getY() + 0.5f - translation.y) / scaleFactor);
+        Point t = new Point(event.getX(), event.getY());
+        if (event.getAction() == MotionEvent.ACTION_DOWN)
+            filter.reset();
+        t = filter.update(t);
+        int x = (int)((t.x + 0.5f - translation.x) / scaleFactor);
+        int y = (int)((t.y + 0.5f - translation.y) / scaleFactor);
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
@@ -86,14 +147,16 @@ public class DrawingView extends View {
                 break;
             case MotionEvent.ACTION_UP:
                 ArrayList<Point> pts = new ArrayList<>();
-                pts.add(new Point(placedSquare[0].x, placedSquare[0].y));
-                pts.add(new Point(placedSquare[1].x, placedSquare[0].y));
-                pts.add(new Point(placedSquare[1].x, placedSquare[1].y));
-                pts.add(new Point(placedSquare[0].x, placedSquare[1].y));
+                double x0 = placedSquare[0].x, y0 = placedSquare[0].y;
+                double w = placedSquare[1].x - x0, h = placedSquare[1].y - y0;
+                for (Point p : Shapes.shapes[shapeIndex].points) {
+                    pts.add(new Point(x0 + p.x * w, y0 + p.y * h));
+                }
                 Polygon poly = new Polygon(this, pts);
                 polygons.add(poly);
                 placedSquare = null;
-                setPlacingSquare(false);
+                setPlacingShape(false);
+                updateLengthFrame();
                 invalidate();
                 break;
             case MotionEvent.ACTION_MOVE:
@@ -108,8 +171,12 @@ public class DrawingView extends View {
     }
 
     private boolean onTouchDrawing(MotionEvent event) {
-        int x = (int)((event.getX() + 0.5f - translation.x) / scaleFactor);
-        int y = (int)((event.getY() + 0.5f - translation.y) / scaleFactor);
+        Point t = new Point(event.getX(), event.getY());
+        if (event.getAction() == MotionEvent.ACTION_DOWN)
+            filter.reset();
+        t = filter.update(t);
+        int x = (int)((t.x + 0.5f - translation.x) / scaleFactor);
+        int y = (int)((t.y + 0.5f - translation.y) / scaleFactor);
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
@@ -130,7 +197,7 @@ public class DrawingView extends View {
                     }
                 }
                 path.clear();
-                setDrawing(false);
+                updateLengthFrame();
                 invalidate();
                 break;
             default:
@@ -140,14 +207,31 @@ public class DrawingView extends View {
     }
 
     private boolean onTouchNoDrawing(MotionEvent event) {
-        int x = (int)((event.getX() + 0.5f - translation.x) / scaleFactor);
-        int y = (int)((event.getY() + 0.5f - translation.y) / scaleFactor);
+        // t - touch in pixel/screen coords
+        Point t = new Point(event.getX(), event.getY());
+        if (event.getAction() == MotionEvent.ACTION_DOWN)
+            filter.reset();
+        t = filter.update(t);
+        int x = (int)((t.x + 0.5f - translation.x) / scaleFactor);
+        int y = (int)((t.y + 0.5f - translation.y) / scaleFactor);
+        // c - touch in world coords
+        Point c = new Point(x, y);
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                clearSelection();
-                touchStart = new Point(event.getX(), event.getY());
+                // Transmit action to selectables
+                boolean preventDefault = false;
+                for (Selectable v : selection) {
+                    if (v.touchDown(new Point(c)))
+                        preventDefault = true;
+                }
+                if (preventDefault)
+                    break;
 
+                // Update touch start
+                touchStart = new Point(t.x, t.y);
+
+                // Select best point & best segment
                 Point p = new Point(x, y);
                 double dist2PointMin = VERTEX_BUTTON_RADIUS / scaleFactor;
                 double dist2SegmMin = SEGM_BUTTON_RADIUS / scaleFactor;
@@ -175,32 +259,58 @@ public class DrawingView extends View {
                         }
                     }
                 }
+
+                // Choice priority: 1) point 2)segment 3)polygon 4)total deselection
                 if (bestPoint != null) {
+                    clearSelection();
                     bestPoint.setSelected(selection, true);
+                    bestPoint.touchDown(c);
                     bestPoint.polygon.showMenu();
                 } else if (bestSegm != null) {
-                    bestSegm.setSelected(selection, true);
-                    bestSegm.next.setSelected(null, true);
+                    if (bestSegm.selected) break;
+                    if (!bestSegm.trySelectWindow(selection, p)) {
+                        clearSelection();
+                        bestSegm.setSelected(selection, true);
+                        bestSegm.touchDown(c);
+                        bestSegm.next.setSelected(null, true);
+                        bestSegm.next.touchDown(c);
+                    }
                     bestSegm.polygon.showMenu();
                 } else if (bestPoly != null) {
+                    clearSelection();
                     bestPoly.setSelected(selection, true);
+                    bestPoly.touchDown(c);
                     bestPoly.showMenu();
                 } else {
+                    clearSelection();
                     ((Activity)getContext()).findViewById(R.id.room_panel).setVisibility(GONE);
                 }
                 invalidate();
                 break;
+
             case MotionEvent.ACTION_MOVE:
-                for (Selectable v : selection)
-                    v.touchDragged(new Point(x, y));
+                // Transmit action to selectables, dozing distance step by step
+                for (Selectable v : selection) {
+                    v.touchMove(c);
+                }
+                // Update translation
                 if (selection.isEmpty()) {
-                    p = new Point(event.getX(), event.getY());
-                    Point delta = p.sub(touchStart);
-                    translation = translation.add(delta);
+                    p = new Point(t.x, t.y);
+                    translation = translation.add(p.sub(touchStart));
                     touchStart = new Point(p);
                 }
+
+                updateLengthFrame();
                 invalidate();
                 break;
+
+            case MotionEvent.ACTION_UP:
+                // Transmit action to selectables
+                for (Selectable v : selection)
+                    v.touchUp(new Point(c));
+
+                updateLengthFrame();
+                invalidate();
         }
         return true;
     }
@@ -219,6 +329,7 @@ public class DrawingView extends View {
         }
         polygonsToRemove.clear();
         drawPolygons(canvas);
+        lengthFrame.draw(canvas);
         drawPenLine(canvas);
         drawPlacedRect(canvas);
     }
@@ -269,7 +380,7 @@ public class DrawingView extends View {
     }
 
     public void setDrawing(boolean drawing) {
-        this.drawing = drawing;
+        this.state = (drawing ? State.DRAWING : State.DEFAULT);
     }
 
     public void save(String filename) throws IOException {
@@ -292,6 +403,29 @@ public class DrawingView extends View {
         for (PolygonData polygonData : data) {
             Polygon poly = new Polygon(this, polygonData);
             polygons.add(poly);
+            int vertexId = 0;
+            Iterator<Vertex> it = poly.vertices.iterator();
+            Vertex vertex = it.next();
+            for (WindowData windowData : polygonData.windows) {
+                while (windowData.vertexId > vertexId) {
+                    vertex = it.next();
+                    vertexId++;
+                }
+                try {
+                    Class<?> aClass = WallElements.wallElements[windowData.classId].aClass;
+                    Constructor<?> constructor = aClass.getConstructor(double.class, double.class, Vertex.class);
+                    Window window = (Window)constructor.newInstance(windowData.left, windowData.right, vertex);
+                    vertex.addWindow(window);
+                } catch (NoSuchMethodException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (InstantiationException e) {
+                    e.printStackTrace();
+                } catch (InvocationTargetException e) {
+                    e.printStackTrace();
+                }
+            }
         }
         in.close();
         file.close();
@@ -307,14 +441,22 @@ public class DrawingView extends View {
             if (v instanceof Vertex) {
                 ((Vertex) v).polygon.remove();
             }
+            if (v instanceof Window) {
+                ((Window) v).v.removeWindow((Window)v);
+            }
             break;
         }
         selection.clear();
+        updateLengthFrame();
         invalidate();
     }
 
-    public void setPlacingSquare(boolean b) {
-        this.placingSquare = b;
+    public void setPlacingShape(boolean b) {
+        this.state = (b ? State.PLACING_SHAPE : State.DEFAULT);
+    }
+
+    public void setPlacingWindow(boolean b) {
+        this.state = (b ? State.PLACING_WINDOW : State.DEFAULT);
     }
 
     public void lockSelected() {
@@ -333,5 +475,19 @@ public class DrawingView extends View {
             }
             break;
         }
+    }
+
+    public void updateLengthFrame() {
+        lengthFrame.update(polygons);
+    }
+
+    public String changeShape() {
+        shapeIndex = (shapeIndex + 1) % Shapes.shapes.length;
+        return Shapes.shapes[shapeIndex].name;
+    }
+
+    public String changeWindow() {
+        windowIndex = (windowIndex + 1) % WallElements.wallElements.length;
+        return WallElements.wallElements[windowIndex].name;
     }
 }

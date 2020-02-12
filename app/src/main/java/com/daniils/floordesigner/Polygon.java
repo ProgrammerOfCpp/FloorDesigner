@@ -7,54 +7,52 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.daniils.floordesigner.activity.EditorActivity;
-import com.daniils.floordesigner.activity.MainActivity;
 import com.daniils.floordesigner.data.PolygonData;
+import com.daniils.floordesigner.data.WindowData;
+import com.daniils.floordesigner.util.Binsearch;
+import com.daniils.floordesigner.util.Maths;
+import com.daniils.floordesigner.util.Util;
 import com.daniils.floordesigner.view.AssetsManager;
 import com.daniils.floordesigner.view.DrawingView;
+import com.daniils.floordesigner.windows.Window;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 
-import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 
 public class Polygon extends Selectable {
+    public static final int wallsColor = Color.rgb(231, 228, 154);
+    public static final int fillColor = Color.rgb(196, 191, 189);
     public Vertex firstVertex;
     public final DrawingView drawingView;
     public LinkedList<Vertex> vertices = new LinkedList<>();
-    private boolean clockwise = true;
-    public Point prevTouchPoint = null;
     private double square = 0;
     public String label = "";
     public final int LABEL_THICKNESS = 40;
     private double rotation = 0, scale = 0.5;
+    private Rect aabb = new Rect();
     public boolean locked = false;
 
     public Polygon(DrawingView drawingView, ArrayList<Point> path) {
         this.drawingView = drawingView;
         if (path.size() < 3)
             remove();
-        // build polygon
-        firstVertex = new Vertex(this, path.get(0), true);
-        Vertex prevInner = firstVertex;
-        for (int i = 1; i < path.size(); i++) {
-            Vertex nextInner = new Vertex(this, path.get(i), false);
-            prevInner.next = nextInner;
-            nextInner.prev = prevInner;
-            prevInner = nextInner;
-        }
-        prevInner.next = firstVertex;
-        firstVertex.prev = prevInner;
-        updateVerticesList();
+        recreateFromPath(path);
         // check whether it goes clockwise
-        if (!canExist())
-            clockwise = false;
+        if (!canExist()) {
+            Collections.reverse(path);
+            recreateFromPath(path);
+        }
         // update outline
         for (Vertex v : vertices) {
             v.updateBisector();
@@ -71,6 +69,21 @@ public class Polygon extends Selectable {
         scale = data.scale;
         label = data.label;
         locked = data.locked;
+    }
+
+    private void recreateFromPath(ArrayList<Point> path) {
+        // build polygon
+        firstVertex = new Vertex(this, path.get(0), true);
+        Vertex prevInner = firstVertex;
+        for (int i = 1; i < path.size(); i++) {
+            Vertex nextInner = new Vertex(this, path.get(i), false);
+            prevInner.next = nextInner;
+            nextInner.prev = prevInner;
+            prevInner = nextInner;
+        }
+        prevInner.next = firstVertex;
+        firstVertex.prev = prevInner;
+        updateVerticesList();
     }
 
     public boolean canExist() {
@@ -102,7 +115,7 @@ public class Polygon extends Selectable {
             path.lineTo((float) c.x, (float) c.y);
             first = false;
         }
-        paint.setColor(Color.rgb(231, 228, 154));
+        paint.setColor(wallsColor);
         paint.setStyle(Paint.Style.FILL);
         g.drawPath(path, paint);
     }
@@ -114,6 +127,7 @@ public class Polygon extends Selectable {
         paint.setStrokeWidth(10);
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(Color.GREEN);
+        int id = 0;
         for (Vertex v : vertices) {
             if (v.selected && v.next.selected) {
                 g.drawLine((int)v.p.x, (int)v.p.y, (int)v.next.p.x, (int)v.next.p.y, paint);
@@ -123,9 +137,13 @@ public class Polygon extends Selectable {
             path.lineTo((float)v.next.p.x, (float)v.next.p.y);
             first = false;
         }
-        paint.setColor(Color.rgb(196, 191, 189));
+        paint.setColor(fillColor);
         paint.setStyle(Paint.Style.FILL);
         g.drawPath(path, paint);
+
+        for (Vertex v : vertices) {
+            v.drawWindows(g);
+        }
     }
 
     public void drawInfo(Canvas g, Paint paint) {
@@ -137,13 +155,16 @@ public class Polygon extends Selectable {
     public void drawUI(Canvas g, Paint paint) {
         AssetsManager assetsManager = ((EditorActivity)drawingView.getContext()).assetsManager;
         for (Vertex v : vertices) {
-            if (!selected && !v.selected)
-                continue;
             Bitmap im1 = assetsManager.moveVertexIcon;
             Matrix mat = new Matrix();
-            mat.setTranslate((float) v.p.x - im1.getWidth() / 2f,
-                    (float) v.p.y - im1.getHeight() / 2f);
-            g.drawBitmap(im1, mat, paint);
+
+
+
+            if (selected || v.selected) {
+                mat.setTranslate((float) v.p.x - im1.getWidth() / 2f,
+                        (float) v.p.y - im1.getHeight() / 2f);
+                g.drawBitmap(im1, mat, paint);
+            }
 
 
             if (selected || (v.selected && v.next.selected)) {
@@ -158,6 +179,22 @@ public class Polygon extends Selectable {
                         (float) im2.getHeight() / 2f);
                 mat.postTranslate((float) c.x, (float) c.y);
                 g.drawBitmap(im2, mat, paint);
+            }
+
+            for (Window window : v.windows) {
+                if (window.selected) {
+                    Point[] ps = window.getAbsoluteCoordinates();
+
+                    mat = new Matrix();
+                    mat.setTranslate((float) ps[0].x - im1.getWidth() / 2f,
+                            (float) ps[0].y - im1.getHeight() / 2f);
+                    g.drawBitmap(im1, mat, paint);
+
+                    mat = new Matrix();
+                    mat.setTranslate((float) ps[1].x - im1.getWidth() / 2f,
+                            (float) ps[1].y - im1.getHeight() / 2f);
+                    g.drawBitmap(im1, mat, paint);
+                }
             }
         }
 
@@ -191,22 +228,43 @@ public class Polygon extends Selectable {
     }
 
     @Override
-    public void touchDragged(Point point) {
-        super.touchDragged(point);
-        if (locked) return;
-        if (prevTouchPoint != null)  {
-            Point delta = point.sub(prevTouchPoint);
-            for (Vertex v : vertices) {
-                v.p = v.p.add(delta);
-                v.outlineA = v.outlineA.add(delta);
-                v.outlineB = v.outlineB.add(delta);
-            }
+    public boolean processMovement(Point point) {
+        super.processMovement(point);
+        if (locked) return true;
+
+
+        final Point delta = point.sub(prevPoint);
+        if (delta.length() > DrawingView.DRAG_MOVEMENT_STEP)
+            System.out.println("Problem 2");
+
+
+        translatePolygonMathematically(delta);
+        boolean collision = false;
+        if (getIntersection() != null) {
+            collision = true;
+            translatePolygonMathematically(delta.scale(-1));
+            double len = Binsearch.perform(0, delta.length(), 1, x -> {
+                Point v = delta.setLength(x);
+                translatePolygonMathematically(v);
+                boolean g = getIntersection() == null;
+                translatePolygonMathematically(v.scale(-1));
+                return g;
+            });
+            translatePolygonMathematically(delta.setLength(len));
         }
-        prevTouchPoint = new Point(point);
+        drawingView.invalidate();
+
+        return !collision;
     }
 
-    public boolean isClockwise() {
-        return clockwise;
+    @Override
+    public boolean touchDown(Point point) {
+        return super.touchDown(point);
+    }
+
+    @Override
+    public void touchUp(Point point) {
+        super.touchUp(point);
     }
 
     public Point getIntersection() {
@@ -215,13 +273,37 @@ public class Polygon extends Selectable {
             if (c != null)
                 return c;
         }
+
+
+        com.snatik.polygon.Polygon polygon = getPolygon();
+        for (Polygon poly : drawingView.polygons) {
+            if (poly == this) continue;
+            if (!poly.aabb.intersect(aabb)) continue;
+            for (Vertex v : poly.vertices) {
+                if (polygon.contains(new com.snatik.polygon.Point(v.p.x, v.p.y))) {
+                    return v.p;
+                }
+            }
+        }
+
         return null;
     }
 
     public PolygonData getData() {
         PolygonData data = new PolygonData();
+
+        int vertexId = 0;
         for (Vertex v : vertices) {
             data.path.add(new Point(v.p));
+            for (Window window : v.windows) {
+                WindowData windowData = new WindowData();
+                windowData.left = window.left;
+                windowData.right = window.right;
+                windowData.vertexId = vertexId;
+                windowData.classId = window.getClassId();
+                data.windows.add(windowData);
+            }
+            vertexId++;
         }
         data.scale = scale;
         data.rotation = rotation;
@@ -231,17 +313,37 @@ public class Polygon extends Selectable {
     }
 
     public void updateSquare() {
-        double k =  0.0000660066;
-        double mToInch = 3.28083989501;
         double sum = 0.0;
         for (Vertex v : vertices) {
-            sum +=  mToInch * ((v.p.x * v.next.p.y) - (v.p.y * v.next.p.x));
+            Point a = v.outlineA;
+            Point b = v.outlineB;
+            Point c = v.next.outlineA;
+            sum +=  (a.x * b.y) - (a.y * b.x);
+            sum +=  (b.x * c.y) - (b.y * c.x);
         }
-        square = Util.setPrecision(sum * k, 2);
+        sum /= 2;
+        square = Util.setPrecision(sum * Maths.M_TO_INCH * Maths.M_TO_INCH, 2);
         square = Math.abs(square);
     }
 
-    private Point getCentroid() {
+    public void updateAABB() {
+        List<Double> vals = new ArrayList<>();
+        for (Vertex v : vertices) {
+            vals.add(v.p.x);
+        }
+        Collections.sort(vals);
+        aabb.left = vals.get(0).intValue();
+        aabb.right = vals.get(vertices.size() - 1).intValue();
+        vals.clear();
+        for (Vertex v : vertices) {
+            vals.add(v.p.y);
+        }
+        Collections.sort(vals);
+        aabb.bottom = vals.get(0).intValue();
+        aabb.top = vals.get(vertices.size() - 1).intValue();
+    }
+
+    public Point getCentroid() {
         double sx = 0, sy = 0;
         for (Vertex v : vertices) {
             sx += v.p.x;
@@ -267,11 +369,12 @@ public class Polygon extends Selectable {
         ((EditText)activity.findViewById(R.id.labelText)).setText(label);
 
         SeekBar scaleBar = activity.findViewById(R.id.scale_edit);
-        scaleBar.setProgress((int)(getScale() * scaleBar.getMax()));
         scaleBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 setScale((double)seekBar.getProgress() / seekBar.getMax());
+                seekBar.setProgress((int)(0.5 + seekBar.getMax() * getScale()));
+                drawingView.updateLengthFrame();
             }
 
             @Override
@@ -284,12 +387,15 @@ public class Polygon extends Selectable {
 
             }
         });
+        scaleBar.setProgress((int)(getScale() * scaleBar.getMax()));
 
         SeekBar rotBar = activity.findViewById(R.id.rotation_edit);
         rotBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 setRotation((double)seekBar.getProgress() / seekBar.getMax());
+                seekBar.setProgress((int)(0.5 + seekBar.getMax() * getRotation()));
+                drawingView.updateLengthFrame();
             }
 
             @Override
@@ -302,7 +408,7 @@ public class Polygon extends Selectable {
 
             }
         });
-        rotBar.setProgress((int)(getRotation() * rotBar.getMax()));
+        rotBar.setProgress((int)(0.5 + getRotation() * rotBar.getMax()));
 
         TextView lockState = activity.findViewById(R.id.lock);
         if (locked)
@@ -319,30 +425,92 @@ public class Polygon extends Selectable {
         return rotation;
     }
 
-    public void setScale(double scale) {
-        scale = Math.max(0.1, scale);
+    private void scalePolygonMathematically(double scale) {
         Point center = getCentroid();
         for (Vertex v : vertices) {
             v.p = (v.p.sub(center)).
-                    scale(1 / this.scale).
-                    scale(scale).
+                    scale(scale / this.scale).
                     add(center);
         }
-        updateOutline();
-        drawingView.invalidate();
         this.scale = scale;
     }
 
-    public void setRotation(double rotation) {
+    public void setScale(double scale) {
+        scale = Math.max(0.1, scale);
+
+        double minScale = this.scale;
+        scalePolygonMathematically(scale);
+        if (getIntersection() != null) {
+            double fs;
+            fs = Binsearch.perform(minScale, scale, 0.01, x -> {
+                scalePolygonMathematically(x);
+                return getIntersection() == null;
+            });
+            scalePolygonMathematically(fs);
+        }
+        drawingView.invalidate();
+        updateOutline();
+    }
+
+    public void rotatePolygonMathematically(double rotation) {
         double alpha = Math.PI * (rotation - this.rotation);
-        System.out.println("ROT " + Math.toDegrees(alpha));
         Point center = getCentroid();
         for (Vertex v : vertices) {
             v.p = Maths.rotate(v.p.sub(center), alpha).add(center);
         }
+        this.rotation = rotation;
+    }
+
+    public void setRotation(double rotation) {
+
+        final double delta = rotation - this.rotation;
+        final double ampl = Math.abs(delta);
+        if (ampl == 0)
+            return;
+        final double sign = delta / ampl;
+        final double r0 = this.rotation;
+
+
+        rotatePolygonMathematically(r0 + ampl * sign);
+        if (getIntersection() != null) {
+            //blockFurtherMovementDueToCollision();
+            final double step = Math.PI / 10;
+            class Kostyl {
+                boolean stop = false;
+            }
+            final Kostyl kostyl = new Kostyl();
+            double finalAmplitude = ampl;
+            double lastAmplitude = 0;
+            for (int i = 0; i * step < ampl && !kostyl.stop; i++) {
+                finalAmplitude = Binsearch.perform(step * i, Math.min(ampl, step * (i + 1)), 0.01, x -> {
+                    double theta = r0 + x * sign;
+                    rotatePolygonMathematically(theta);
+                    if (getIntersection() != null) {
+                        kostyl.stop = true;
+                        return false;
+                    } else {
+                        return true;
+                    }
+                });
+                rotatePolygonMathematically(r0 + finalAmplitude * sign);
+                if (getIntersection() != null) {
+                    finalAmplitude = lastAmplitude;
+                } else {
+                    lastAmplitude = finalAmplitude;
+                }
+            }
+            rotatePolygonMathematically(r0 + finalAmplitude * sign);
+        }
         updateOutline();
         drawingView.invalidate();
-        this.rotation = rotation;
+    }
+
+    public void translatePolygonMathematically(Point delta) {
+        for (Vertex v : vertices) {
+            v.p = v.p.add(delta);
+            v.outlineA = v.outlineA.add(delta);
+            v.outlineB = v.outlineB.add(delta);
+        }
     }
 
     public void updateOutline() {
@@ -351,5 +519,6 @@ public class Polygon extends Selectable {
             v.updateOutline();
         }
         updateSquare();
+        updateAABB();
     }
 }

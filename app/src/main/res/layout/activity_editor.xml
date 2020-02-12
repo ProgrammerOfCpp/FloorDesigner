@@ -44,7 +44,17 @@
             android:layout_height="wrap_content"
             android:layout_toEndOf="@id/pen_on"
             android:onClick="onPlaceSquareButtonClick"
-            android:text="@string/place_square" />
+            android:text="@string/place_shape" />
+
+        <Button
+            android:id="@+id/change_shape"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/zoom_minus"
+            android:layout_below="@id/place_square"
+            android:onClick="onChangeShapeButtonClick"
+            android:text="@string/square" />
 
         <Button
             android:id="@+id/zoom_plus"
@@ -64,6 +74,25 @@
             android:layout_toEndOf="@id/zoom_plus"
             android:onClick="onZoomMinusClick"
             android:text="@string/zoom_minus" />
+
+        <Button
+            android:id="@+id/place_window"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/place_square"
+            android:onClick="onPlaceWindowButtonClick"
+            android:text="@string/place_window" />
+
+        <Button
+            android:id="@+id/change_window"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/place_window"
+            android:layout_toEndOf="@id/change_shape"
+            android:onClick="onChangleWindowClick"
+            android:text="@string/window" />
 
     </RelativeLayout>
 

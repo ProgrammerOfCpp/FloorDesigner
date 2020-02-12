@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Floor Designer</string>
     <string name="pen_on">Pen On</string>
-    <string name="pen_off">Pen off</string>
+    <string name="pen_off">Pen Off</string>
     <string name="clear">Clear</string>
     <string name="zoom_plus">+</string>
     <string name="zoom_minus">-</string>
@@ -17,8 +17,11 @@
     <string name="apply">Apply</string>
     <string name="rotation">Rotation</string>
     <string name="scale">Scale</string>
-    <string name="label_text">Label text...</string>
-    <string name="place_square">Square</string>
+    <string name="label_text">Label text…</string>
+    <string name="place_shape">Place:</string>
+    <string name="place_window">Place:</string>
     <string name="lock">Lock</string>
     <string name="unlock">Unlock</string>
+    <string name="square">Square</string>
+    <string name="window">Window</string>
 </resources>

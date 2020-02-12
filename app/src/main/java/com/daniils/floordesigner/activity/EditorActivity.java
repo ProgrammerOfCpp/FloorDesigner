@@ -1,6 +1,5 @@
 package com.daniils.floordesigner.activity;
 
-import android.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
@@ -118,10 +117,23 @@ public class EditorActivity extends AppCompatActivity {
 
     public void onPlaceSquareButtonClick(View view) {
         Toast.makeText(this, "Drag and drop to create square", Toast.LENGTH_LONG).show();
-        drawingView.setPlacingSquare(true);
+        drawingView.setPlacingShape(true);
     }
 
     public void onLockClick(View view) {
         drawingView.lockSelected();
+    }
+
+    public void onChangeShapeButtonClick(View view) {
+        ((Button)view).setText(drawingView.changeShape());
+    }
+
+    public void onPlaceWindowButtonClick(View view) {
+        Toast.makeText(this, "Tap on a wall to place selected element", Toast.LENGTH_LONG).show();
+        drawingView.setPlacingWindow(true);
+    }
+
+    public void onChangleWindowClick(View view) {
+        ((Button)view).setText(drawingView.changeWindow());
     }
 }

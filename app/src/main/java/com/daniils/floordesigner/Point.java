@@ -1,10 +1,12 @@
 package com.daniils.floordesigner;
 
+import com.daniils.floordesigner.util.Maths;
+
 import java.io.Serializable;
 
 public class Point implements Serializable {
     public static final Point zero = new Point(0, 0);
-    public double x = 0, y = 0;
+    public double x, y;
     public Point(double x, double y) {
         this.x = x;
         this.y = y;

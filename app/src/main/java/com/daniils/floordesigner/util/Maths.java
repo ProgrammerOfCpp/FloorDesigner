@@ -1,13 +1,26 @@
-package com.daniils.floordesigner;
+package com.daniils.floordesigner.util;
+
+import com.daniils.floordesigner.Point;
 
 import java.util.Arrays;
 
 public class Maths {
     public static final double E = 0.000000000001;
+    public static final double M_TO_INCH = 0.01471587849;
 
     public static boolean equals(double a, double b) {
-        System.out.println(Math.abs(a - b) + " " + a + " " + b);
         return Math.abs(a - b) < E;
+    }
+
+    public static double clamp(double v, double a, double b) {
+        if (b < a) {
+            double c = a;
+            a = b;
+            b = c;
+        }
+        if (v < a)  v = a;
+        if (v > b)  v = b;
+        return v;
     }
 
     public static double dist(Point A, Point B) {
@@ -57,11 +70,9 @@ public class Maths {
     }
 
     public static Point rotate(Point A, double alpha) {
-        double theta = theta(Point.zero, A) + alpha;
-        double len = A.length();
         double x = A.x * Math.cos(alpha) - A.y * Math.sin(alpha);
         double y = A.x * Math.sin(alpha) + A.y * Math.cos(alpha);
-        return getRotatedPoint(theta, len);
+        return new Point(x, y);
     }
 
     public static Point intersection(Point A, Point B, Point C, Point D) {
@@ -122,6 +133,23 @@ public class Maths {
         return p;
     }
 
+    public static Point getCircleCenter(Point A, Point B, Point C) {
+        A = A.sub(C);
+        B = B.sub(C);
+        double a1 = 2 * A.x, b1 = 2 * A.y, c1 = A.x * A.x + A.y * A.y;
+        double a2 = 2 * B.x, b2 = 2 * B.y, c2 = B.x * B.x + B.y * B.y;
+        if (a1 == 0 && b2 == 0) {
+            return getCircleCenter(B.add(C), A.add(C), C);
+        }
+        double E = 0;
+        if (a1 * b2 == a2 * b1) {
+            E = Maths.E;
+        }
+        double y = (a1 * c2 - a2 * c1) / (a1 * b2 - a2 * b1 + E);
+        double x = (c1 - b1 * y) / a1;
+        return new Point(x, y).add(C);
+    }
+
     public static Point projectTo(Point point, Point a, Point b) {
         Point out = new Point(point);
         if (a.x == b.x) {
@@ -132,10 +160,6 @@ public class Maths {
             double theta = theta(a, point, a, b);
             double len = dist(a, point) * Math.cos(theta);
             out = b.sub(a).setLength(len).add(a);
-            if (out.equals(Point.zero) || out.isNan()) {
-
-                System.out.println(theta + " " + len);
-            }
         }
         return out;
     }
